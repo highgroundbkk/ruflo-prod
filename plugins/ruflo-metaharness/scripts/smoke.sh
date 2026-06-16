@@ -191,6 +191,30 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17x. ADR-152 spike — similarity invariants verified at structural level (iter 35)"
+F="$ROOT/scripts/_spike-similarity.mjs"
+miss=""
+[[ -x "$F" ]] || miss="$miss not-executable"
+node --check "$F" 2>/dev/null || miss="$miss syntax-error"
+# The 3-component similarity formula matches ADR-152's decision
+grep -q "0.6 \* cos + 0.25 \* cat + 0.15 \* jac" "$F" || miss="$miss weight-formula-drift"
+# Both invariants explicit
+grep -q "selfMatch" "$F" || miss="$miss no-invariant-1"
+grep -q "verticalAffinity" "$F" || miss="$miss no-invariant-2"
+# 3 fixtures (LEGAL/SUPPORT/DEVOPS) — anti-regression
+for fix in LEGAL SUPPORT DEVOPS; do
+  grep -q "const ${fix} = {" "$F" || miss="$miss missing-fixture-${fix}"
+done
+# Fail-closed on invariant violation
+grep -q "process.exit(1)" "$F" || miss="$miss no-fail-closed"
+# ADR-152 status updated to Accepted
+ADR152="$ROOT/../../v3/docs/adr/ADR-152-genome-similarity-search.md"
+grep -q "Status\*\*: Accepted" "$ADR152" 2>/dev/null || miss="$miss adr152-not-accepted"
+# ADR-151 §3.1 marker upgraded
+PARENT151="$ROOT/../../v3/docs/adr/ADR-151-harness-intelligence-layer.md"
+grep -q "ACCEPTED iter 35" "$PARENT151" 2>/dev/null || miss="$miss adr151-marker-stale"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17w. ADR-152 Genome Similarity Search drafted (iter 34, Phase 3 critical-path)"
 F="$ROOT/../../v3/docs/adr/ADR-152-genome-similarity-search.md"
 miss=""
@@ -208,7 +232,7 @@ grep -q "Smallest demonstrable spike" "$F" 2>/dev/null || miss="$miss no-spike-c
 # Cross-link from ADR-151 updated to DRAFTED
 PARENT151="$ROOT/../../v3/docs/adr/ADR-151-harness-intelligence-layer.md"
 grep -q "ADR-152-genome-similarity-search.md" "$PARENT151" 2>/dev/null || miss="$miss adr151-not-updated"
-grep -q "DRAFTED iter 34" "$PARENT151" 2>/dev/null || miss="$miss adr151-no-drafted-marker"
+grep -qE "DRAFTED iter 34|ACCEPTED iter 3[0-9]" "$PARENT151" 2>/dev/null || miss="$miss adr151-no-progress-marker"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
 step "17v. ADR-151 Phase 3 scope shell drafted (iter 33)"

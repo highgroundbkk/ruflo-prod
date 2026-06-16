@@ -1,9 +1,26 @@
 # ADR-152 — Genome Similarity Search
 
-**Status**: Proposed
-**Date**: 2026-06-16
+**Status**: Accepted (spike landed iter 35 — both invariants pass)
+**Date**: 2026-06-16 (revised same-day with spike result)
 **Parent**: [ADR-151](ADR-151-harness-intelligence-layer.md) (Phase 3 scope shell — Harness Intelligence Layer)
 **Inherits**: ADR-150's four architectural constraints (removable / optional / graceful / CI-gate)
+**Spike**: `plugins/ruflo-metaharness/scripts/_spike-similarity.mjs` ([iter-35 commit](https://github.com/ruvnet/ruflo/commit/HEAD))
+
+## Spike result (iter 35 — measured)
+
+```
+similarity(LEGAL, LEGAL).overall = 1.0000    ✓ Invariant 1 (self-match) — exact
+similarity(LEGAL, SUPPORT).overall = 0.8296
+similarity(LEGAL, DEVOPS).overall  = 0.5840  ✓ Invariant 2 (vertical affinity) — support > devops
+
+Per-component (LEGAL vs SUPPORT):  cosine=0.9987  categorical=0.75   jaccard=0.2857
+Per-component (LEGAL vs DEVOPS):   cosine=0.9734  categorical=0      jaccard=0
+```
+
+Notable findings from the spike:
+- **Numerical cosine alone is too coarse** — LEGAL vs DEVOPS scored cosine=0.9734 despite being unrelated verticals. The numerics are clustered around similar scorecard ranges. Categorical + jaccard pulled the composite correctly to 0.58 vs 0.83.
+- **The 0.6/0.25/0.15 weighting from the §Decision section reproduces the intended ordering** on the synthetic LEGAL/SUPPORT/DEVOPS fixtures.
+- **`categorical: 0` for LEGAL/DEVOPS** correctly fires because they share no enum field (different archetypes, different templates, different recommendedMode). This is a strong feature of the design — categorical disagreement is a clean kill-switch.
 
 ## Context
 
