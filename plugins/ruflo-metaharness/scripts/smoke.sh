@@ -191,6 +191,27 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z4. bench-similarity.mjs — perf characterization + regression gate (iter 41)"
+F="$ROOT/scripts/bench-similarity.mjs"
+miss=""
+[[ -x "$F" ]] || miss="$miss not-executable"
+node --check "$F" 2>/dev/null || miss="$miss syntax-error"
+# 3 fixture categories declared (anti-shrink guard)
+for cat in CHEAP TYPICAL RICH; do
+  grep -q "const ${cat} = {" "$F" 2>/dev/null || miss="$miss missing-fixture-${cat}"
+done
+# Imports from the production module, not the spike
+grep -q "from './_similarity.mjs'" "$F" 2>/dev/null || miss="$miss not-using-production-module"
+# Gate flag exposed
+grep -q -- "--max-mean-us" "$F" 2>/dev/null || miss="$miss no-gate-flag"
+# Runtime: quick bench succeeds (low iter count so smoke stays fast)
+node "$F" --iters 10000 --max-mean-us 50 >/dev/null 2>&1 || miss="$miss runtime-fails-or-overhead-blew-50us"
+# Runtime: gate trips on absurd ceiling, exit 1 path exercised
+if node "$F" --iters 10000 --max-mean-us 0.0001 >/dev/null 2>&1; then
+  miss="$miss gate-failed-to-trip"
+fi
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z3. metaharness-ci.yml has the similarity-tests job (iter 40 — CI gate enforcement)"
 F="$ROOT/../../.github/workflows/metaharness-ci.yml"
 miss=""
