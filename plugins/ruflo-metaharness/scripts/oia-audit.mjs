@@ -114,11 +114,13 @@ async function main() {
   }
 
   const startedAt = new Date().toISOString();
+  const wallStart = Date.now();
   // iter 56 — run the 5 sub-audits in parallel (was sequential pre-iter-56).
   // Worst-case wall-clock improves from 5×TIMEOUT to 1×TIMEOUT in the
   // unreachable-registry case; the happy path improves from sum-of-durations
   // to max-of-durations (typically ~2-4× faster).
   const all = await runAllParallel(ARGS.path);
+  const wallMs = Date.now() - wallStart;
   const { oiaManifest: oia, threatModel: tm, mcpScan: mcp, score, genome } = all;
 
   // If all FIVE say "metaharness not available", surface the degraded
@@ -147,10 +149,23 @@ async function main() {
     }
   }
 
+  // iter 59 — surface parallelization metrics. wallMs is the actual
+  // time the 5 subprocess race took (max of components); the sum of
+  // component.durationMs is what a SERIAL implementation would have
+  // taken. A future smoke gate compares them to catch silent
+  // serialization regression.
+  const sumComponentMs = Object.values(all).reduce(
+    (a, c) => a + (c?.durationMs ?? 0), 0);
   const payload = {
     path: ARGS.path,
     startedAt,
     finishedAt: new Date().toISOString(),
+    timing: {
+      wallMs,
+      sumComponentMs,
+      parallelSpeedup: sumComponentMs > 0
+        ? Math.round((sumComponentMs / Math.max(wallMs, 1)) * 100) / 100 : 0,
+    },
     composite: { worst: compositeWorst, threatModelWorst: tmWorst, mcpScanWorst: mcpWorst },
     components: { oiaManifest: oia, threatModel: tm, mcpScan: mcp, score, genome },
     // iter 38 — denormalized harness fingerprint for cheap similarity().

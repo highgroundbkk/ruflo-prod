@@ -191,6 +191,25 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z22. oia-audit timing field + parallel-speedup gate (iter 59)"
+miss=""
+OIA="$ROOT/scripts/oia-audit.mjs"
+grep -q "wallStart\|wallMs = Date.now" "$OIA" 2>/dev/null || miss="$miss no-wall-start"
+grep -q "timing: {" "$OIA" 2>/dev/null || miss="$miss no-timing-field"
+grep -q "sumComponentMs" "$OIA" 2>/dev/null || miss="$miss no-sum-field"
+grep -q "parallelSpeedup" "$OIA" 2>/dev/null || miss="$miss no-speedup-field"
+# Runtime: speedup must be > 2x (sanity — sequential would be ~1x)
+OUT=$(node "$OIA" --dry-run --format json 2>&1)
+SPEEDUP=$(echo "$OUT" | python3 -c "
+import json, sys, re
+m = re.search(r'\{[\s\S]*\}', sys.stdin.read())
+d = json.loads(m.group())
+print(d.get('timing', {}).get('parallelSpeedup', 0))
+" 2>/dev/null)
+# Compare as float — speedup should exceed 2.0 (5 sequential calls → max-of-5 parallel)
+python3 -c "import sys; sys.exit(0 if float('$SPEEDUP') > 2.0 else 1)" || miss="$miss serial-regression-detected:speedup=$SPEEDUP"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z21. drift-from-history parallelizes audit-list + oia-audit (iter 58)"
 miss=""
 F="$ROOT/scripts/drift-from-history.mjs"
