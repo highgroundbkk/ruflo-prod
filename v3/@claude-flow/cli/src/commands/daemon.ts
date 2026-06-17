@@ -92,16 +92,70 @@ const startCommand: Command = {
     }
 
     // Check if background daemon already running (skip if we ARE the daemon process)
+    //
+    // #2407 — without an atomic lockfile, N concurrent `daemon start` calls
+    // (devcontainer setup + VS Code task + MCP hook within ~500 ms) all see
+    // an empty PID file in the same instant, all proceed past this dedup,
+    // and all fork their own background daemon. One incident accumulated
+    // 39 zombie daemons holding ~8.5 GiB → kernel panic.
+    //
+    // Wrap the check + the subsequent fork in an O_EXCL lockfile so the
+    // dedup is process-atomic. Lock holder gets to spawn; competing callers
+    // see EEXIST, wait briefly, then re-read the PID file (which the holder
+    // has now written), and return "already running" cleanly.
     if (!isDaemonProcess) {
-      const bgPid = getBackgroundDaemonPid(projectRoot);
-      if (bgPid && isProcessRunning(bgPid)) {
-        if (!quiet) {
-          output.printWarning(`Daemon already running in background (PID: ${bgPid}). Stop it first with: daemon stop`);
+      const stateDir = join(resolve(projectRoot), '.claude-flow');
+      const lockFile = join(stateDir, 'daemon.lock');
+      try { fs.mkdirSync(stateDir, { recursive: true }); } catch { /* exists */ }
+      let lockFd: number | null = null;
+      try {
+        lockFd = fs.openSync(lockFile, fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_WRONLY);
+        fs.writeSync(lockFd, String(process.pid));
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+          // Another `daemon start` is mid-spawn. Wait up to 5s for it to
+          // finish, then re-check the PID file. If the holder crashed
+          // mid-spawn, fall through and reset; killStaleDaemons + a fresh
+          // attempt will recover.
+          const deadline = Date.now() + 5000;
+          while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 100));
+            const winnerPid = getBackgroundDaemonPid(projectRoot);
+            if (winnerPid && isProcessRunning(winnerPid)) {
+              if (!quiet) {
+                output.printWarning(`Daemon already running in background (PID: ${winnerPid}). Stop it first with: daemon stop`);
+              }
+              return { success: true };
+            }
+          }
+          // Stale lockfile from a crashed prior attempt — clear it and
+          // proceed without a held lock. Worst case we double-spawn ONCE
+          // and the killStaleDaemons sweep below cleans up.
+          try { fs.unlinkSync(lockFile); } catch { /* ignore */ }
+        } else {
+          throw e;
         }
-        return { success: true };
       }
-      // #1551: Kill any stale daemon processes that weren't tracked by PID file
-      await killStaleDaemons(projectRoot, quiet);
+      try {
+        const bgPid = getBackgroundDaemonPid(projectRoot);
+        if (bgPid && isProcessRunning(bgPid)) {
+          if (!quiet) {
+            output.printWarning(`Daemon already running in background (PID: ${bgPid}). Stop it first with: daemon stop`);
+          }
+          return { success: true };
+        }
+        // #1551: Kill any stale daemon processes that weren't tracked by PID file
+        await killStaleDaemons(projectRoot, quiet);
+      } finally {
+        // Release the lock so the lock-loser can re-check (or the next
+        // legitimate invocation can spawn). startBackgroundDaemon below
+        // writes the PID file synchronously before returning so the
+        // post-release re-check finds it.
+        if (lockFd !== null) {
+          try { fs.closeSync(lockFd); } catch { /* ignore */ }
+          try { fs.unlinkSync(lockFile); } catch { /* ignore */ }
+        }
+      }
     }
 
     // Background mode (default): fork a detached process.
