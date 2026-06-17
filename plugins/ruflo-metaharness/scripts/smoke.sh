@@ -191,6 +191,28 @@ grep -q "execCli(\[\s*'-y'\s*,\s*'metaharness@latest'" "$F" 2>/dev/null || \
 grep -q "cwd: opts" "$F" || miss="$miss no-cwd-passthrough"
 [[ -z "$miss" ]] && ok || bad "$miss"
 
+step "17z76. oia-audit emits startedAt + finishedAt timestamp pair (iter 113)"
+miss=""
+# Companion to iter-112. oia-audit is the documented multi-step
+# composite exception — it emits startedAt + finishedAt (richer
+# semantic than a single generatedAt). iter-113 verifies BOTH fields
+# present and that finishedAt >= startedAt (sanity).
+OUT=$(node "$ROOT/scripts/oia-audit.mjs" --dry-run --format json 2>/dev/null)
+SHAPE=$(echo "$OUT" | python3 -c "
+import json, sys, re
+m = re.search(r'\{[\s\S]*\}', sys.stdin.read())
+d = json.loads(m.group()) if m else {}
+sa = d.get('startedAt', '')
+fa = d.get('finishedAt', '')
+if not sa: print('missing-startedAt')
+elif not fa: print('missing-finishedAt')
+elif len(sa) < 20 or len(fa) < 20: print('short-timestamps')
+elif fa < sa: print('finished-before-started')
+else: print('OK')
+" 2>/dev/null)
+[[ "$SHAPE" == "OK" ]] || miss="$miss oia-audit-timestamp-${SHAPE}"
+[[ -z "$miss" ]] && ok || bad "$miss"
+
 step "17z75. all scripts emit generatedAt timestamp in --format json (iter 112)"
 miss=""
 # Each --format json output should include a `generatedAt` ISO timestamp
