@@ -2,3 +2,5 @@
 {"iter":15,"dim":"beir-nfcorpus","ndcg10":0.3517,"delta":0.0,"action":"noImprovement"}
 {"iter":16,"dim":"beir-nfcorpus","ndcg10":0.2961,"delta":-0.0556,"action":"noImprovement"}
 {"iter":17,"ts":"2026-06-26T21:49:37.378Z","dimension":"beir-scifact","change":"validate-stacked-iters-1-14-on-scifact","measured":{"ndcg10":0.5765772269258473,"baseline":0.5694},"deltaScore":0.0071772269258473,"action":"measured-improved","commit":""}
+{"iter":18,"dim":"beir-scifact","dataset":"scifact","ndcg10":0.5971257945924495,"delta":0.0205257945924495,"baseline":0.5766,"action":"commit","weights":{"dense":1.0,"bm25":0.4},"rank":"10/11"}
+{"iter":19,"dim":"beir-scifact","ndcg10":0.6136,"delta":0.0165,"action":"advance","weights":"dense=1.0 bm25=0.2","notes":"nfcorpus winner recipe tested on scifact","timestamp":"2026-06-26T21:58:51.622Z"}
