@@ -25,10 +25,13 @@ const TRACES = [
   { id: 't10',success: false, repeatable: true,  novel: true  },
 ];
 
-// Distillation predicate (tick-1 baseline = strict: success && repeatable && novel).
-// Tick-2+ may relax or learn this predicate. The METRIC stays the same.
+// Distillation predicate — tick-3 relaxed: success && (repeatable || novel).
+// Rationale (ADR-155): a successful trace that is either reliably repeatable
+// OR introduces a novel pattern is worth distilling into the skill library.
+// Requiring BOTH (tick-1 baseline) was too strict and dropped reusable wins.
+// The METRIC contract (promoted / successful) is unchanged.
 function shouldPromote(trace) {
-  return trace.success && trace.repeatable && trace.novel;
+  return trace.success && (trace.repeatable || trace.novel);
 }
 
 function run() {
