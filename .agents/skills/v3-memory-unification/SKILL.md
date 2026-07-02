@@ -1,13 +1,15 @@
 ---
 name: "V3 Memory Unification"
-description: "Unify 6+ memory systems into AgentDB with HNSW indexing for 150x-12,500x search improvements. Implements ADR-006 (Unified Memory Service) and ADR-009 (Hybrid Memory Backend)."
+description: "Unify 6+ memory systems into AgentDB with HNSW indexing (measured ~1.9x-4.7x vs brute force, see below). Implements ADR-006 (Unified Memory Service) and ADR-009 (Hybrid Memory Backend)."
 ---
 
 # V3 Memory Unification
 
+> **Status**: ADR-006 and ADR-009 are already implemented in `v3/@claude-flow/memory/src/` (`MemoryService`/`UnifiedMemoryService`, `HybridBackend`, `SQLiteBackend`, `HNSWIndex`). This skill documents the existing architecture; use it as a reference when extending or debugging the memory backend, not as a from-scratch implementation task.
+
 ## What This Skill Does
 
-Consolidates disparate memory systems into unified AgentDB backend with HNSW vector search, achieving 150x-12,500x search performance improvements while maintaining backward compatibility.
+Consolidates disparate memory systems into unified AgentDB backend with HNSW vector search, achieving measured ~1.9x (N=20k) to ~3.2x-4.7x (N=5k) search speedups vs brute force (recall@10 ~0.99) while maintaining backward compatibility. The commonly-cited "150x-12,500x" figure was traced to a brute-force fallback bug and has not been reproduced — see `v3/CLAUDE.md` and `docs/reviews/intelligence-system-audit-2026-05-29.md`.
 
 ## Quick Start
 
@@ -38,7 +40,7 @@ Task("Memory migration", "Migrate SQLite/Markdown to AgentDB", "v3-memory-specia
                     ↓
 ┌─────────────────────────────────────────┐
 │       🚀 AgentDB with HNSW             │
-│  • 150x-12,500x faster search          │
+│  • ~1.9x-4.7x faster search (measured)  │
 │  • Unified query interface             │
 │  • Cross-agent memory sharing          │
 │  • SONA learning integration           │
@@ -63,7 +65,7 @@ class UnifiedMemoryService implements IMemoryBackend {
 
   async query(query: MemoryQuery): Promise<MemoryEntry[]> {
     if (query.semantic) {
-      return this.indexer.search(query); // 150x-12,500x faster
+      return this.indexer.search(query); // ~1.9x-4.7x faster (measured, ANN wins above crossover)
     }
     return this.agentdb.query(query);
   }
@@ -78,7 +80,7 @@ class HNSWIndexer {
       dimensions,
       efConstruction: 200,
       M: 16,
-      speedupTarget: '150x-12500x'
+      speedupTarget: 'measured-1.9x-4.7x'
     });
   }
 
@@ -98,7 +100,7 @@ class HNSWIndexer {
 const agentdb = new AgentDBAdapter({
   dimensions: 1536,
   indexType: 'HNSW',
-  speedupTarget: '150x-12500x'
+  speedupTarget: 'measured-1.9x-4.7x'
 });
 ```
 
@@ -158,17 +160,17 @@ class SONAMemoryIntegration {
 
 ## Performance Targets
 
-- **Search Speed**: 150x-12,500x improvement via HNSW
-- **Memory Usage**: 50-75% reduction through optimization
-- **Query Latency**: <100ms for 1M+ entries
+- **Search Speed**: ~1.9x (N=20k) to ~3.2x-4.7x (N=5k) vs brute force — **measured**, not the unverified 150x-12,500x figure
+- **Memory Usage**: 50-75% reduction through optimization (target)
+- **Query Latency**: <100ms for 1M+ entries (target)
 - **Cross-Agent Sharing**: Real-time memory synchronization
-- **SONA Integration**: <0.05ms adaptation time
+- **SONA Integration**: 0.0043ms/adapt — **measured** (target <0.05ms met)
 
 ## Success Metrics
 
-- [ ] All 7 legacy memory systems migrated to AgentDB
-- [ ] 150x-12,500x search performance validated
-- [ ] 50-75% memory usage reduction achieved
-- [ ] Backward compatibility maintained
-- [ ] SONA learning patterns integrated
-- [ ] Cross-agent memory sharing operational
+- [x] All legacy memory systems migrated to AgentDB (`MemoryService`/`UnifiedMemoryService`, `HybridBackend`, `SQLiteBackend`, `HNSWIndex` in `v3/@claude-flow/memory/src/`)
+- [x] HNSW search speedup measured (~1.9x-4.7x vs brute force; 150x-12,500x not reproduced)
+- [ ] 50-75% memory usage reduction achieved (not independently verified in this pass)
+- [x] Backward compatibility maintained (`UnifiedMemoryService` kept as deprecated alias)
+- [ ] SONA learning patterns integrated (not independently verified in this pass)
+- [ ] Cross-agent memory sharing operational (not independently verified in this pass)
