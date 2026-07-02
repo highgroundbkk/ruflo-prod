@@ -118,7 +118,7 @@ on:
       - 'plugins/*/agents/**'
       - 'plugins/*/skills/**'
       - 'plugins/*/commands/**'
-      - 'scripts/smoke-init-bundle-invariants.mjs'
+      - 'scripts/smoke-init-bundle-dedup.mjs'
       # ADR-129 — rvagent full integration (P1-P4)
       - 'v3/@claude-flow/cli/src/ruvector/agent-wasm.ts'
       - 'v3/@claude-flow/cli/src/mcp-tools/wasm-agent-tools.ts'
@@ -2125,8 +2125,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run init-bundle invariants smoke
-        run: node scripts/smoke-init-bundle-invariants.mjs
+      - name: Run init-bundle dedup smoke test
+        run: node scripts/smoke-init-bundle-dedup.mjs
 
   wasm-provider-bridge-smoke:
     # ADR-129 Phase 1 — JsModelProvider routes WasmAgent through the v3
