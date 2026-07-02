@@ -66,6 +66,10 @@ const KNOWN_ESCAPE_HATCHES = new Set([
   'CLAUDE_FLOW_FORCE_UPDATE',     // Set by --force flag internally, then cleared — not external
   'CLAUDE_FLOW_AUTO_UPDATE',      // Auto-update cadence — env-only documented design
 
+  // ── User shell customization (statusline prompt) ───────────────────────────
+  'RUFLO_STATUSLINE_COST_SYMBOL',     // Shell prompt customization — user sets in .zshrc/.bashrc
+  'RUFLO_STATUSLINE_HIDE_COST',       // Shell prompt customization — user sets in .zshrc/.bashrc
+
   // ── Logging / diagnostics ───────────────────────────────────────────────────
   'CLAUDE_FLOW_LOG_LEVEL',
   'DEBUG',

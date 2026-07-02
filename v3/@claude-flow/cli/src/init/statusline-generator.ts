@@ -145,6 +145,49 @@ function getLocalADRCount() {
   return { count: total, implemented: total, compliance: 0 };
 }
 
+// Helper to safely read pattern count from SQLite memory.db
+// Fix for ruflo#1989: encrypted RFE1 files without magic-bytes check produce bogus counts
+function getSQLitePatternCount(dbPath) {
+  try {
+    if (!fs.existsSync(dbPath)) return 0;
+    const buf = Buffer.alloc(4096);
+    const fd = fs.openSync(dbPath, 'r');
+    try {
+      fs.readSync(fd, buf, 0, 4096, 0);
+      // Magic-bytes check: SQLite format 3 header (fix for ruflo#1989)
+      if (!Buffer.from('SQLite format 3').equals(buf.slice(0, 16))) {
+        return 0; // Not a valid SQLite file (possibly encrypted)
+      }
+      // Read page count from bytes 28-31 (fix for ruflo#1989)
+      const pageCount = buf.readUInt32BE(28);
+      // Sanity clamp: reject >1M pages (~4GB) (fix for ruflo#1989)
+      if (pageCount > 1_000_000) return 0;
+      return pageCount;
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch { /* ignore */ }
+  return 0;
+}
+
+// Helper to check installed plugin version (fix for ruflo#1951)
+// Probes .claude/plugins/marketplaces/ruflo first for user-installed plugins
+function getInstalledPluginVersion() {
+  const candidates = [
+    path.join(CWD, '.claude', 'plugins', 'marketplaces', 'ruflo', 'package.json'),
+    path.join(CWD, 'node_modules', 'ruflo', 'package.json'),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        const pkg = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
+        return pkg.version || undefined;
+      }
+    } catch { /* ignore */ }
+  }
+  return undefined;
+}
+
 // Minimal local fallback when the CLI is not installed or times out.
 // Returns a structure that matches the CLI JSON schema so the renderer works.
 function buildLocalFallback() {

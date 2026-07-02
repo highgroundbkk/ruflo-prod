@@ -1084,6 +1084,7 @@ export const memoryTools: MCPTool[] = [
       //   5. legacy 6-namespace hardcode as last-resort fallback
       // The legacy default was silently missing ~95% of entries on stores with
       // custom namespaces (issue #2246). Dynamic enumeration fixes that.
+      // Note: CLI flag parameters (namespace/namespaces) take precedence over env var per ADR-130.
       const LEGACY_DEFAULT = ['default', 'claude-memories', 'auto-memory', 'patterns', 'tasks', 'feedback'];
       let namespaces: string[];
       let namespaceSource: 'param-single' | 'param-list' | 'env' | 'dynamic' | 'legacy-fallback';
@@ -1092,6 +1093,7 @@ export const memoryTools: MCPTool[] = [
       } else if (nsList && nsList.length > 0) {
         namespaces = nsList; namespaceSource = 'param-list';
       } else if (process.env.CLAUDE_FLOW_MEMORY_SEARCH_NAMESPACES) {
+        // CLI flag precedence: namespace/namespaces parameters checked above take precedence
         namespaces = process.env.CLAUDE_FLOW_MEMORY_SEARCH_NAMESPACES.split(',').map(s => s.trim()).filter(Boolean);
         namespaceSource = 'env';
       } else {
