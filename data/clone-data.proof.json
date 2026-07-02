@@ -10,8 +10,8 @@
     "captured_at": "2026-05-30T17:25:39.899Z",
     "clones_14d": 0,
     "unique_cloners_14d": 0,
-    "npm_downloads_12mo_headline": 5134676,
-    "headline": "5.1M npm downloads · 0k git clones (14d)"
+  "npm_downloads_12mo_headline": 5134676,
+  "headline": "5.1M npm downloads · git clone fetch failed (14d)"
   },
   "ledger_snapshot_count": 5,
   "ledger_sha256": "0d6f5a75c65831a16c47137c09e6ee3708be67222ef724ada138e0dc8b2d34ad",
