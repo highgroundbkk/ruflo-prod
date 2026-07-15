@@ -83,14 +83,14 @@ const MODEL_MAP: Record<string, string> = {
   inherit: DEFAULT_ANTHROPIC_MODEL,
 };
 
-// #2357 — the adaptive-thinking family (Fable 5, Opus 4.8, Opus 4.7) removed
-// the sampling parameters (temperature/top_p/top_k); the Anthropic API
+// #2357 — the adaptive-thinking family (Fable 5, Opus 4.8, Opus 4.7, Sonnet 5)
+// removed the sampling parameters (temperature/top_p/top_k); the Anthropic API
 // returns 400 "Extra inputs are not permitted" when any is present.
 // Prefix-match so dated snapshots (e.g. claude-opus-4-8-YYYYMMDD) are
 // covered. Applies only to the direct Anthropic path — the Ollama/OpenRouter
 // OpenAI-compat paths accept temperature and are unchanged.
 export function modelRejectsSamplingParams(model: string): boolean {
-  return /^claude-(fable-5|opus-4-8|opus-4-7)/.test(model);
+  return /^claude-(fable-5|opus-4-8|opus-4-7|sonnet-5)/.test(model);
 }
 
 export interface AnthropicCallInput {
