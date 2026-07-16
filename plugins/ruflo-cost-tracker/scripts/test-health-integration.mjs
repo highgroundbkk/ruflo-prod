@@ -49,10 +49,19 @@ function assert(cond, label) {
 
 function memStore(cwd, key, valueObj) {
   const r = spawnSync('npx', [
-    '@claude-flow/cli@latest', 'memory', 'store',
+    '-y', '@claude-flow/cli@latest', 'memory', 'store',
     '--namespace', NS, '--key', key,
     '--value', JSON.stringify(valueObj),
-  ], { cwd, stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' });
+  ], {
+    cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf-8',
+    shell: process.platform === 'win32',
+  });
+  if (r.status !== 0) {
+    const detail = r.error?.message || r.stderr?.trim() || `exit status ${r.status}`;
+    console.error(`  → npx memory store failed: ${detail}`);
+  }
   return r.status === 0;
 }
 
