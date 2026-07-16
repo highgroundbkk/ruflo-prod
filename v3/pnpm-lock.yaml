@@ -141,9 +141,6 @@ importers:
         specifier: ^2.8.0
         version: 2.8.2
     optionalDependencies:
-      '@claude-flow/codex':
-        specifier: ^3.0.0
-        version: link:../codex
       '@claude-flow/memory':
         specifier: ^3.0.0-alpha.21
         version: link:../memory
