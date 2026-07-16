@@ -27,6 +27,7 @@ import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
+import { spawnNpxSync } from './_npx.mjs';
 
 const SCRIPTS_DIR = dirname(fileURLToPath(import.meta.url));
 const HEALTH = join(SCRIPTS_DIR, 'health.mjs');
@@ -48,7 +49,7 @@ function assert(cond, label) {
 }
 
 function memStore(cwd, key, valueObj) {
-  const r = spawnSync('npx', [
+  const r = spawnNpxSync([
     '-y', '@claude-flow/cli@latest', 'memory', 'store',
     '--namespace', NS, '--key', key,
     '--value', JSON.stringify(valueObj),
@@ -61,6 +62,22 @@ function memStore(cwd, key, valueObj) {
   if (r.status !== 0) {
     const detail = r.error?.message || r.stderr?.trim() || `exit status ${r.status}`;
     console.error(`  → npx memory store failed: ${detail}`);
+  }
+  return r.status === 0;
+}
+
+function memInit(cwd) {
+  const r = spawnNpxSync([
+    '-y', '@claude-flow/cli@latest', 'memory', 'init',
+  ], {
+    cwd,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf-8',
+    shell: process.platform === 'win32',
+  });
+  if (r.status !== 0) {
+    const detail = r.error?.message || r.stderr?.trim() || `exit status ${r.status}`;
+    console.error(`  → npx memory init failed: ${detail}`);
   }
   return r.status === 0;
 }
@@ -120,6 +137,7 @@ async function main() {
   {
     const cwd = join(fixture, 'case-2-hardstop');
     mkdirSync(join(cwd, '.swarm'), { recursive: true });
+    if (!memInit(cwd)) { console.error('  → fixture initialization failed'); process.exit(2); }
     // 5 sessions × $0.10 = $0.50 spend
     for (let i = 0; i < 5; i++) {
       const ts = new Date(Date.now() - (i + 2) * 86_400_000).toISOString();
@@ -166,7 +184,14 @@ async function main() {
 
   // Cleanup
   if (process.env.TEST_HEALTH_KEEP_FIXTURE !== '1') {
-    rmSync(fixture, { recursive: true, force: true });
+    try {
+      rmSync(fixture, { recursive: true, force: true });
+    } catch (error) {
+      // Windows can retain a transient AgentDB handle after the npx child
+      // exits. Fixture cleanup must not hide a completed contract test.
+      if (process.platform !== 'win32' || error?.code !== 'EPERM') throw error;
+      console.warn(`  → fixture cleanup deferred: ${error.message}`);
+    }
   } else {
     console.log(`\n(fixture kept at ${fixture})`);
   }
