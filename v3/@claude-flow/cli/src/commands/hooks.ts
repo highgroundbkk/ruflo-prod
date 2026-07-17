@@ -4207,19 +4207,27 @@ const statuslineCommand: Command = {
 
     // Get user info
     function getUserInfo() {
-      let name = 'user';
+      const identityMode = (process.env.RUFLO_STATUSLINE_IDENTITY || 'project').toLowerCase();
+      let name = path.basename(process.cwd()) || 'project';
       let gitBranch = '';
       const modelName = 'Opus 4.6 (1M context)';
       const isWindows = process.platform === 'win32';
 
       try {
-        const nameCmd = isWindows
-          ? 'git config user.name 2>NUL || echo user'
-          : 'git config user.name 2>/dev/null || echo "user"';
+        const rootCmd = isWindows
+          ? 'git rev-parse --show-toplevel 2>NUL'
+          : 'git rev-parse --show-toplevel 2>/dev/null';
         const branchCmd = isWindows
           ? 'git branch --show-current 2>NUL || echo.'
           : 'git branch --show-current 2>/dev/null || echo ""';
-        name = execSync(nameCmd, { encoding: 'utf-8' }).trim();
+        const root = execSync(rootCmd, { encoding: 'utf-8' }).trim();
+        name = path.basename(root) || name;
+        if (identityMode === 'author') {
+          const authorCmd = isWindows
+            ? 'git config user.name 2>NUL || echo user'
+            : 'git config user.name 2>/dev/null || echo "user"';
+          name = execSync(authorCmd, { encoding: 'utf-8' }).trim() || 'user';
+        }
         gitBranch = execSync(branchCmd, { encoding: 'utf-8' }).trim();
         if (gitBranch === '.') gitBranch = '';
       } catch {
@@ -4279,7 +4287,10 @@ const statuslineCommand: Command = {
     const terminalCols = process.stdout.columns ?? 80;
     const autoCompact = !ctx.flags.full && terminalCols < COMPACT_WIDTH_THRESHOLD;
     if (ctx.flags.compact || autoCompact) {
-      const line = `DDD:${progress.domainsCompleted}/${progress.totalDomains} CVE:${security.cvesFixed}/${security.totalCves} Swarm:${swarm.activeAgents}/${swarm.maxAgents} Ctx:${system.contextPct}% Int:${system.intelligencePct}%`;
+      const securityCompact = security.findings > 0
+        ? `Findings:${security.findings}`
+        : `Security:${security.status}`;
+      const line = `DDD:${progress.domainsCompleted}/${progress.totalDomains} ${securityCompact} Swarm:${swarm.activeAgents}/${swarm.maxAgents} Ctx:${system.contextPct}% Int:${system.intelligencePct}%`;
       output.writeln(line);
       return { success: true, data: statusData };
     }
@@ -4458,14 +4469,14 @@ const statuslineCommand: Command = {
 
     const swarmIndicator = swarm.coordinationActive ? `${c.brightGreen}◉${c.reset}` : `${c.dim}○${c.reset}`;
     const agentsColor = swarm.activeAgents > 0 ? c.brightGreen : c.red;
-    const securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'IN_PROGRESS' ? '🟡' : '🔴';
-    const securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'IN_PROGRESS' ? c.brightYellow : c.brightRed;
+    const securityIcon = security.status === 'CLEAN' ? '🟢' : security.status === 'PENDING' ? '🟡' : '🔴';
+    const securityColor = security.status === 'CLEAN' ? c.brightGreen : security.status === 'PENDING' ? c.brightYellow : c.brightRed;
     const hooksColor = hooksStats.enabled > 0 ? c.brightGreen : c.dim;
 
     const line2 = `${c.brightYellow}🤖 Swarm${c.reset}  ${swarmIndicator} [${agentsColor}${String(swarm.activeAgents).padStart(2)}${c.reset}/${c.brightWhite}${swarm.maxAgents}${c.reset}]  ` +
       `${c.brightPurple}👥 ${system.subAgents}${c.reset}    ` +
       `${c.brightBlue}🪝 ${hooksColor}${hooksStats.enabled}${c.reset}/${c.brightWhite}${hooksStats.total}${c.reset}    ` +
-      `${securityIcon} ${securityColor}CVE ${security.cvesFixed}${c.reset}/${c.brightWhite}${security.totalCves}${c.reset}    ` +
+      `${securityIcon} ${securityColor}${security.findings > 0 ? `Findings ${security.findings}` : `Security ${security.status}`}${c.reset}    ` +
       `${c.brightCyan}💾 ${system.memoryMB}MB${c.reset}    ` +
       `${c.brightPurple}🧠 ${String(system.intelligencePct).padStart(3)}%${c.reset}`;
 

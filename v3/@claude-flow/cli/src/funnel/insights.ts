@@ -35,7 +35,7 @@ export interface LocalInsight {
 }
 
 export interface LocalInsightContext {
-  security?: { status: string; cvesFixed: number; totalCves: number };
+  security?: { status: string; findings?: number; cvesFixed: number; totalCves: number };
   swarm?: { activeAgents: number; maxAgents: number; coordinationActive: boolean };
   /** Count of uncommitted-changed files (git status --short line count). */
   gitUncommittedCount?: number;
@@ -76,11 +76,11 @@ function flywheelInsight(now: Date): LocalInsight | null {
 function securityInsight(ctx: LocalInsightContext): LocalInsight | null {
   const s = ctx.security;
   if (!s) return null;
-  const pending = s.totalCves - s.cvesFixed;
-  if (pending > 0) {
+  const findings = Math.max(0, s.findings ?? 0);
+  if (s.status === 'ISSUES' || findings > 0) {
     return {
-      id: 'insight-cves-pending',
-      text: `⚠ ${pending} CVE${pending === 1 ? '' : 's'} pending — Run ruflo security scan --depth full`,
+      id: 'insight-security-findings',
+      text: `⚠ ${findings} security finding${findings === 1 ? '' : 's'} — Review the latest ruflo security scan`,
       priority: 90,
     };
   }

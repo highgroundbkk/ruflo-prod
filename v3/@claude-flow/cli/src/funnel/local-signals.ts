@@ -12,37 +12,45 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 
 export interface SecurityStatus {
-  status: 'CLEAN' | 'IN_PROGRESS' | 'PENDING';
+  status: 'CLEAN' | 'ISSUES' | 'PENDING';
+  /** Generic code-pattern findings from `ruflo security scan` (not CVEs). */
+  findings: number;
+  scannedAt?: string;
+  /** @deprecated Retained as a zero-valued compatibility field. */
   cvesFixed: number;
+  /** @deprecated Retained as a zero-valued compatibility field. */
   totalCves: number;
 }
 
 export function getSecurityStatus(cwd: string = process.cwd()): SecurityStatus {
+  const empty: SecurityStatus = {
+    status: 'PENDING', findings: 0, cvesFixed: 0, totalCves: 0,
+  };
   const scanResultsPath = path.join(cwd, '.claude', 'security-scans');
-  let cvesFixed = 0;
-  const totalCves = 3;
-
-  if (fs.existsSync(scanResultsPath)) {
-    try {
-      const scans = fs.readdirSync(scanResultsPath).filter((f: string) => f.endsWith('.json'));
-      cvesFixed = Math.min(totalCves, scans.length);
-    } catch {
-      // Ignore
+  if (!fs.existsSync(scanResultsPath)) return empty;
+  try {
+    const files = fs.readdirSync(scanResultsPath).filter((f: string) => f.endsWith('.json'));
+    if (files.length === 0) return empty;
+    let newest = files[0];
+    let newestMtime = -1;
+    for (const f of files) {
+      const st = fs.statSync(path.join(scanResultsPath, f));
+      if (st.mtimeMs > newestMtime) { newestMtime = st.mtimeMs; newest = f; }
     }
+    const scan = JSON.parse(fs.readFileSync(path.join(scanResultsPath, newest), 'utf-8'));
+    const rawFindings: number =
+      scan.summary?.total ?? scan.totalFindings ?? scan.findings?.length ?? 0;
+    const findings = Math.max(0, Number.isFinite(rawFindings) ? rawFindings : 0);
+    return {
+      status: findings > 0 ? 'ISSUES' : 'CLEAN',
+      findings,
+      scannedAt: typeof scan.timestamp === 'string' ? scan.timestamp : undefined,
+      cvesFixed: 0,
+      totalCves: 0,
+    };
+  } catch {
+    return empty;
   }
-
-  const auditPath = path.join(cwd, '.swarm', 'security');
-  if (fs.existsSync(auditPath)) {
-    try {
-      const audits = fs.readdirSync(auditPath).filter((f: string) => f.includes('audit'));
-      cvesFixed = Math.min(totalCves, Math.max(cvesFixed, audits.length));
-    } catch {
-      // Ignore
-    }
-  }
-
-  const status = cvesFixed >= totalCves ? 'CLEAN' : cvesFixed > 0 ? 'IN_PROGRESS' : 'PENDING';
-  return { status, cvesFixed, totalCves };
 }
 
 export interface SwarmStatus {

@@ -1134,26 +1134,26 @@ describe('local insight ticker (computeLocalInsights / selectLocalInsight)', () 
     expect(selectLocalInsight({})).toBeNull();
   });
 
-  it('surfaces pending CVEs at the highest priority', () => {
-    const insights = computeLocalInsights({ security: { status: 'IN_PROGRESS', cvesFixed: 1, totalCves: 3 } });
+  it('surfaces scanner findings at the highest priority without calling them CVEs', () => {
+    const insights = computeLocalInsights({ security: { status: 'ISSUES', findings: 2, cvesFixed: 0, totalCves: 0 } });
     expect(insights).toHaveLength(1);
-    expect(insights[0].text).toContain('2 CVEs pending');
-    expect(insights[0].text).toContain('ruflo security scan --depth full');
+    expect(insights[0].text).toContain('2 security findings');
+    expect(insights[0].text).not.toContain('CVE');
   });
 
-  it('singularizes "1 CVE" correctly', () => {
-    const insight = selectLocalInsight({ security: { status: 'IN_PROGRESS', cvesFixed: 2, totalCves: 3 } });
-    expect(insight!.text).toContain('1 CVE pending');
-    expect(insight!.text).not.toContain('1 CVEs');
+  it('singularizes "1 security finding" correctly', () => {
+    const insight = selectLocalInsight({ security: { status: 'ISSUES', findings: 1, cvesFixed: 0, totalCves: 0 } });
+    expect(insight!.text).toContain('1 security finding');
+    expect(insight!.text).not.toContain('1 security findings');
   });
 
-  it('falls back to "scan pending" only when there are zero pending CVEs but the scan itself is pending', () => {
-    const insight = selectLocalInsight({ security: { status: 'PENDING', cvesFixed: 3, totalCves: 3 } });
+  it('falls back to "scan pending" when no scan result exists', () => {
+    const insight = selectLocalInsight({ security: { status: 'PENDING', findings: 0, cvesFixed: 0, totalCves: 0 } });
     expect(insight!.text).toContain('Security scan pending');
   });
 
   it('is silent when security is CLEAN', () => {
-    expect(selectLocalInsight({ security: { status: 'CLEAN', cvesFixed: 3, totalCves: 3 } })).toBeNull();
+    expect(selectLocalInsight({ security: { status: 'CLEAN', findings: 0, cvesFixed: 0, totalCves: 0 } })).toBeNull();
   });
 
   it('surfaces uncommitted changes only above the threshold', () => {
@@ -1164,10 +1164,10 @@ describe('local insight ticker (computeLocalInsights / selectLocalInsight)', () 
 
   it('picks the highest-priority candidate when several apply at once', () => {
     const insight = selectLocalInsight({
-      security: { status: 'IN_PROGRESS', cvesFixed: 2, totalCves: 3 }, // priority 90
+      security: { status: 'ISSUES', findings: 1, cvesFixed: 0, totalCves: 0 }, // priority 90
       gitUncommittedCount: 50, // priority 50
     });
-    expect(insight!.id).toBe('insight-cves-pending');
+    expect(insight!.id).toBe('insight-security-findings');
   });
 
   it('surfaces power-saver mode only when both consented and flagged low', () => {
@@ -1221,15 +1221,15 @@ describe('local insight ticker (computeLocalInsights / selectLocalInsight)', () 
     expect(selectLocalInsight({})).toBeNull();
   });
 
-  it('CVEs pending still outrank the advisor tip', () => {
+  it('security findings still outrank the advisor tip', () => {
     recordConsent('advisor-tips', true, 'test');
     fs.writeFileSync(
       path.join(stateDir, 'advisor-tip.json'),
       JSON.stringify({ _ts: Date.now(), headline: 'a tip' }),
       'utf-8',
     );
-    const insight = selectLocalInsight({ security: { status: 'IN_PROGRESS', cvesFixed: 0, totalCves: 1 } });
-    expect(insight!.id).toBe('insight-cves-pending');
+    const insight = selectLocalInsight({ security: { status: 'ISSUES', findings: 1, cvesFixed: 0, totalCves: 0 } });
+    expect(insight!.id).toBe('insight-security-findings');
   });
 
   it('the advisor tip outranks the flywheel-status placeholder', () => {
@@ -1275,11 +1275,11 @@ describe('local insight ticker integration with getFunnelPromo (ADR §5)', () =>
       interactive: true,
       cwd: stateDir,
       now: probe,
-      localInsights: { security: { status: 'IN_PROGRESS', cvesFixed: 0, totalCves: 1 } },
+      localInsights: { security: { status: 'ISSUES', findings: 1, cvesFixed: 0, totalCves: 0 } },
     });
     expect(row).not.toBeNull();
     expect(row!.kind).toBe('insight');
-    expect(row!.text).toContain('CVE');
+    expect(row!.text).toContain('security finding');
   });
 
   it('falls through to normal rotation on the insight slot when nothing is actionable', () => {
@@ -1295,7 +1295,7 @@ describe('local insight ticker integration with getFunnelPromo (ADR §5)', () =>
       interactive: true,
       cwd: stateDir,
       now: probe,
-      localInsights: { security: { status: 'CLEAN', cvesFixed: 1, totalCves: 1 } },
+      localInsights: { security: { status: 'CLEAN', findings: 0, cvesFixed: 0, totalCves: 0 } },
     });
     expect(row).not.toBeNull();
     expect(row!.kind).not.toBe('insight'); // no actionable insight -> normal rotation
@@ -1315,7 +1315,7 @@ describe('local insight ticker integration with getFunnelPromo (ADR §5)', () =>
       interactive: true,
       cwd: stateDir,
       now: probe,
-      localInsights: { security: { status: 'IN_PROGRESS', cvesFixed: 0, totalCves: 1 } },
+      localInsights: { security: { status: 'ISSUES', findings: 1, cvesFixed: 0, totalCves: 0 } },
     });
     expect(row!.text).toContain('Cognitum capacity');
     expect(row!.kind).not.toBe('insight');

@@ -111,7 +111,7 @@ export interface ReflectResult {
  * elsewhere in the statusline.
  */
 export interface CoPilotSnapshot {
-  security?: { status: string; cvesFixed: number; totalCves: number };
+  security?: { status: string; findings?: number; cvesFixed: number; totalCves: number };
   swarm?: { activeAgents: number; maxAgents: number; coordinationActive: boolean };
   gitUncommittedCount?: number;
   contextPctUsed?: number;
