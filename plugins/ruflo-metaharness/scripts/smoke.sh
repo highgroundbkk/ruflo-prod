@@ -799,8 +799,8 @@ TOOLS=$(grep -oE "name: 'metaharness_[a-z_]+'" "$WRAPPER" 2>/dev/null \
 COUNT=0
 for t in $TOOLS; do
   COUNT=$((COUNT + 1))
-  # Look for `mcp__plugin_ruflo-core_ruflo__metaharness_X` (the agent-facing name form)
-  grep -q "mcp__plugin_ruflo-core_ruflo__${t}" "$CMD" 2>/dev/null \
+  # audit-allow: standalone-mcp-prefix — this checks the repository CLAUDE.md, not a plugin skill.
+  grep -q "mcp__claude-flow__${t}" "$CMD" 2>/dev/null \
     || miss="$miss ${t}-not-in-claude-md"
 done
 # Count derived from the wrapper source (mint deliberately excluded — see
@@ -1521,7 +1521,8 @@ grep -q "drift-from-history.mjs" "$WRAPPER" 2>/dev/null || miss="$miss no-script
 grep -q "baselineSince" "$WRAPPER" 2>/dev/null || miss="$miss no-baseline-since-input"
 # CLAUDE.md mentions both surfaces
 CMD="$ROOT/../../CLAUDE.md"
-grep -q "mcp__plugin_ruflo-core_ruflo__metaharness_drift_from_history" "$CMD" 2>/dev/null || miss="$miss claude-md-no-mcp"
+# audit-allow: standalone-mcp-prefix — this checks the repository CLAUDE.md, not a plugin skill.
+grep -q "mcp__claude-flow__metaharness_drift_from_history" "$CMD" 2>/dev/null || miss="$miss claude-md-no-mcp"
 grep -q "ruflo metaharness drift-from-history" "$CMD" 2>/dev/null || miss="$miss claude-md-no-subcommand"
 # Phase 4 includes the new positive-case assertions
 T="$ROOT/scripts/test-mcp-tools.mjs"
@@ -1806,7 +1807,8 @@ grep -q "Graceful fallback when fingerprint missing" "$F" 2>/dev/null || miss="$
 grep -q "Distance alert gate exits 1" "$F" 2>/dev/null || miss="$miss no-alert-step"
 # CLAUDE.md documents the new MCP tool + subcommand
 CMD="$ROOT/../../CLAUDE.md"
-grep -q "mcp__plugin_ruflo-core_ruflo__metaharness_similarity" "$CMD" 2>/dev/null || miss="$miss claude-md-no-mcp-tool"
+# audit-allow: standalone-mcp-prefix — this checks the repository CLAUDE.md, not a plugin skill.
+grep -q "mcp__claude-flow__metaharness_similarity" "$CMD" 2>/dev/null || miss="$miss claude-md-no-mcp-tool"
 grep -q "ruflo metaharness similarity" "$CMD" 2>/dev/null || miss="$miss claude-md-no-subcommand"
 grep -q -- "--alert-on-distance-below" "$CMD" 2>/dev/null || miss="$miss claude-md-no-distance-flag"
 [[ -z "$miss" ]] && ok || bad "$miss"
@@ -2123,7 +2125,8 @@ grep -q "Ruflo remains operational if every MetaHarness package is removed" "$F"
 grep -q "no-metaharness-smoke.yml" "$F" || miss="$miss no-ci-gate-ref"
 # Command surface + tool surface enumerated
 grep -q "npx ruflo metaharness score" "$F" || miss="$miss no-cli-example"
-grep -q "mcp__plugin_ruflo-core_ruflo__metaharness_" "$F" || miss="$miss no-mcp-tool-list"
+# audit-allow: standalone-mcp-prefix — this checks the repository CLAUDE.md, not a plugin skill.
+grep -q "mcp__claude-flow__metaharness_" "$F" || miss="$miss no-mcp-tool-list"
 # Routing + parallel-log integration both mentioned
 grep -q "CLAUDE_FLOW_ROUTER_NEURAL\|CLAUDE_FLOW_ROUTER_PARALLEL_LOG" "$F" || miss="$miss no-routing-flags"
 # 3-criteria gate

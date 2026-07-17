@@ -11,6 +11,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PLUGINS = join(ROOT, 'plugins');
 const LEGACY_PREFIX = 'mcp__claude-flow__';
 const CORRECT_PREFIX = 'mcp__plugin_ruflo-core_ruflo__';
+const STANDALONE_AUDIT_ALLOW = 'audit-allow: standalone-mcp-prefix';
 const TEXT_EXTENSIONS = new Set(['.md', '.mjs', '.js', '.cjs', '.ts', '.sh', '.json', '.yaml', '.yml']);
 
 function* walk(dir) {
@@ -32,6 +33,10 @@ for (const path of walk(PLUGINS)) {
   const lines = content.split(/\r?\n/);
   for (let index = 0; index < lines.length; index++) {
     if (lines[index].includes(LEGACY_PREFIX)) {
+      const explicitlyChecksStandaloneSurface =
+        lines[index].includes(STANDALONE_AUDIT_ALLOW) ||
+        (index > 0 && lines[index - 1].includes(STANDALONE_AUDIT_ALLOW));
+      if (explicitlyChecksStandaloneSurface) continue;
       violations.push(`${relative(ROOT, path)}:${index + 1}`);
     }
   }
